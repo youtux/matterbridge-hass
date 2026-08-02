@@ -210,12 +210,13 @@ export function addControlEntity(
     platform.log.debug(`= thermostat device ${CYAN}${entity.entity_id}${db} fan_modes: ${CYAN}${state.attributes['fan_modes']}${db} fan_mode: ${CYAN}${state.attributes['fan_mode']}${db}`);
     const fanModeStr = state.attributes['fan_mode'];
     let initialFanMode: FanControl.FanMode = FanControl.FanMode.Auto;
-    if (fanModeStr === 'off') initialFanMode = FanControl.FanMode.Off;
-    else if (fanModeStr === 'low' || fanModeStr === 'min') initialFanMode = FanControl.FanMode.Low;
-    else if (fanModeStr === 'medium' || fanModeStr === 'middle') initialFanMode = FanControl.FanMode.Medium;
-    else if (fanModeStr === 'high' || fanModeStr === 'max' || fanModeStr === 'top') initialFanMode = FanControl.FanMode.High;
-    else if (fanModeStr === 'on' || fanModeStr === 'focus' || fanModeStr === 'diffuse') initialFanMode = FanControl.FanMode.On;
-    mutableDevice.addClusterServerBasicFanControl(endpointName, initialFanMode);
+    let initialPercentCurrent = 50;
+    if (fanModeStr === 'off') { initialFanMode = FanControl.FanMode.Off; initialPercentCurrent = 0; }
+    else if (fanModeStr === 'low' || fanModeStr === 'min') { initialFanMode = FanControl.FanMode.Low; initialPercentCurrent = 25; }
+    else if (fanModeStr === 'medium' || fanModeStr === 'middle') { initialFanMode = FanControl.FanMode.Medium; initialPercentCurrent = 50; }
+    else if (fanModeStr === 'high' || fanModeStr === 'max' || fanModeStr === 'top') { initialFanMode = FanControl.FanMode.High; initialPercentCurrent = 100; }
+    else if (fanModeStr === 'on' || fanModeStr === 'focus' || fanModeStr === 'diffuse') { initialFanMode = FanControl.FanMode.On; initialPercentCurrent = 50; }
+    mutableDevice.addClusterServerBasicFanControl(endpointName, initialFanMode, undefined, initialPercentCurrent);
     mutableDevice.addDeviceTypes(endpointName, fan);
   }
 

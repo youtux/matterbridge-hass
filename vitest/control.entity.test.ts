@@ -220,27 +220,28 @@ describe('addControlEntity', () => {
     expect(md.addDeviceTypes).toHaveBeenCalledWith(e.entity_id, fan);
   });
 
-  it('climate with FAN_MODE and each fan mode maps to correct initial Matter FanMode', () => {
+  it('climate with FAN_MODE and each fan mode maps to correct initial Matter FanMode and percentCurrent', () => {
     const fanModeMapping = [
-      { ha: 'off', expectedIdx: 0 },
-      { ha: 'low', expectedIdx: 1 },
-      { ha: 'min', expectedIdx: 1 },
-      { ha: 'medium', expectedIdx: 2 },
-      { ha: 'middle', expectedIdx: 2 },
-      { ha: 'high', expectedIdx: 3 },
-      { ha: 'max', expectedIdx: 3 },
-      { ha: 'top', expectedIdx: 3 },
-      { ha: 'on', expectedIdx: 4 },
-      { ha: 'auto', expectedIdx: 5 },
-      { ha: 'unknown', expectedIdx: 5 },
+      { ha: 'off', expectedIdx: 0, expectedPercent: 0 },
+      { ha: 'low', expectedIdx: 1, expectedPercent: 25 },
+      { ha: 'min', expectedIdx: 1, expectedPercent: 25 },
+      { ha: 'medium', expectedIdx: 2, expectedPercent: 50 },
+      { ha: 'middle', expectedIdx: 2, expectedPercent: 50 },
+      { ha: 'high', expectedIdx: 3, expectedPercent: 100 },
+      { ha: 'max', expectedIdx: 3, expectedPercent: 100 },
+      { ha: 'top', expectedIdx: 3, expectedPercent: 100 },
+      { ha: 'on', expectedIdx: 4, expectedPercent: 50 },
+      { ha: 'auto', expectedIdx: 5, expectedPercent: 50 },
+      { ha: 'unknown', expectedIdx: 5, expectedPercent: 50 },
     ];
-    for (const { ha, expectedIdx } of fanModeMapping) {
+    for (const { ha, expectedIdx, expectedPercent } of fanModeMapping) {
       const [md, e, s] = make('climate', 'fancoil', { hvac_modes: ['heat'], supported_features: 8, fan_modes: [ha], fan_mode: ha });
       addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
       // @ts-expect-error chainable return
       const calls = md.addClusterServerBasicFanControl.mock.calls;
       expect(calls.length).toBe(1);
       expect(calls[0][1]).toBe(expectedIdx);
+      expect(calls[0][3]).toBe(expectedPercent);
     }
   });
 

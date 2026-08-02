@@ -655,4 +655,11 @@ export const hassSubscribeConverter: { domain: string; service: string; with: st
       else if (value === FanControl.FanMode.On) return 'on';
       else return 'auto'; // FanControl.FanMode.Auto, FanControl.FanMode.Smart
     } },
+    { domain: 'climate',  service: 'set_fan_mode',    with: 'fan_mode',     clusterId: FanControl.id,  attribute: 'percentSetting', converter: (value: number) => {
+      if (!isValidNumber(value, 0, 100)) return null;
+      if (value === 0) return null; // triggers turn_off
+      else if (value <= 33) return 'low';
+      else if (value <= 66) return 'medium';
+      else return 'high';
+    } },
   ]

@@ -440,6 +440,12 @@ describe('HassPlatform converters', () => {
         } as HassConfig;
         expect(converter.converter(1000)).toBe(10);
       }
+      if (converter.domain === 'climate' && converter.attribute === 'percentSetting' && converter.converter) {
+        expect(converter.converter(0)).toBe(null);
+        expect(converter.converter(25)).toBe('low');
+        expect(converter.converter(50)).toBe('medium');
+        expect(converter.converter(100)).toBe('high');
+      }
     });
   });
 
@@ -506,6 +512,21 @@ describe('HassPlatform converters', () => {
     expect(c.converter(FanControl.FanMode.Auto)).toBe('auto');
     // oxlint-disable-next-line typescript/no-deprecated
     expect(c.converter(FanControl.FanMode.Smart)).toBe('auto');
+  });
+
+  it('climate percentSetting subscribe converter maps percentage ranges to fan mode strings', () => {
+    const c = hassSubscribeConverter.find((x) => x.domain === 'climate' && x.service === 'set_fan_mode' && x.with === 'fan_mode' && x.attribute === 'percentSetting');
+    expect(c).toBeDefined();
+    if (!c?.converter) return;
+    expect(c.converter(0)).toBe(null); // triggers turn_off
+    expect(c.converter(1)).toBe('low');
+    expect(c.converter(33)).toBe('low');
+    expect(c.converter(34)).toBe('medium');
+    expect(c.converter(66)).toBe('medium');
+    expect(c.converter(67)).toBe('high');
+    expect(c.converter(100)).toBe('high');
+    expect(c.converter(-1)).toBe(null); // invalid
+    expect(c.converter(101)).toBe(null); // invalid
   });
 
   it('climate fan_mode update converter maps HA strings to percentCurrent values', () => {
