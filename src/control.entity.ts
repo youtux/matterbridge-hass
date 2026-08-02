@@ -24,7 +24,7 @@
 /* oxlint-disable typescript/no-explicit-any */
 /* oxlint-disable typescript/restrict-template-expressions */
 
-import { colorTemperatureLight, dimmableLight, extendedColorLight, type MatterbridgeEndpoint, type PrimitiveTypes } from 'matterbridge';
+import { colorTemperatureLight, dimmableLight, extendedColorLight, fan, type MatterbridgeEndpoint, type PrimitiveTypes } from 'matterbridge';
 import { CYAN, db, debugStringify } from 'matterbridge/logger';
 import type { ActionContext } from 'matterbridge/matter';
 import { FanControl, LevelControl } from 'matterbridge/matter/clusters';
@@ -216,6 +216,7 @@ export function addControlEntity(
     else if (fanModeStr === 'high' || fanModeStr === 'max' || fanModeStr === 'top') initialFanMode = FanControl.FanMode.High;
     else if (fanModeStr === 'on' || fanModeStr === 'focus' || fanModeStr === 'diffuse') initialFanMode = FanControl.FanMode.On;
     mutableDevice.addClusterServerBasicFanControl(endpointName, initialFanMode);
+    mutableDevice.addDeviceTypes(endpointName, fan);
   }
 
   // Configure the FanControl cluster default values and features.

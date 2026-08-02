@@ -508,6 +508,27 @@ describe('HassPlatform converters', () => {
     expect(c.converter(FanControl.FanMode.Smart)).toBe('auto');
   });
 
+  it('climate fan_mode update converter maps HA strings to percentCurrent values', () => {
+    const c = hassUpdateAttributeConverter.find((x) => x.domain === 'climate' && x.with === 'fan_mode' && x.attribute === 'percentCurrent');
+    expect(c).toBeDefined();
+    if (!c?.converter) return;
+    expect(c.converter('off', {} as HassState)).toBe(0);
+    expect(c.converter('low', {} as HassState)).toBe(25);
+    expect(c.converter('min', {} as HassState)).toBe(25);
+    expect(c.converter('medium', {} as HassState)).toBe(50);
+    expect(c.converter('middle', {} as HassState)).toBe(50);
+    expect(c.converter('high', {} as HassState)).toBe(100);
+    expect(c.converter('max', {} as HassState)).toBe(100);
+    expect(c.converter('top', {} as HassState)).toBe(100);
+    expect(c.converter('on', {} as HassState)).toBe(50);
+    expect(c.converter('focus', {} as HassState)).toBe(50);
+    expect(c.converter('diffuse', {} as HassState)).toBe(50);
+    expect(c.converter('auto', {} as HassState)).toBe(null);
+    expect(c.converter('unknown_mode', {} as HassState)).toBe(null);
+    expect(c.converter('', {} as HassState)).toBe(null);
+    expect(c.converter(null as any, {} as HassState)).toBe(null);
+  });
+
   describe('convertMatterXYToHA', () => {
     it('should convert 0,0 to [0,0]', () => {
       expect(convertMatterXYToHA(0, 0)).toEqual([0, 0]);

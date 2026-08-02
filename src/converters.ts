@@ -453,6 +453,18 @@ export const hassUpdateAttributeConverter: { domain: string; with: string; clust
         return null;
       }
     } },
+    { domain: 'climate', with: 'fan_mode', clusterId: FanControl.id, attribute: 'percentCurrent', converter: (value: string) => {
+      if (isValidString(value)) {
+        if (value === 'off') return 0;
+        else if (value === 'low' || value === 'min') return 25;
+        else if (value === 'medium' || value === 'middle') return 50;
+        else if (value === 'high' || value === 'max' || value === 'top') return 100;
+        else if (value === 'on' || value === 'focus' || value === 'diffuse') return 50;
+        else return null; // 'auto' and unknown modes: leave percentCurrent unchanged
+      } else {
+        return null;
+      }
+    } },
 
     { domain: 'valve', with: 'current_position', clusterId: ValveConfigurationAndControl.id, attribute: 'currentLevel', converter: (value: number) => (isValidNumber(value, 0, 100) ? Math.round(value) : null) },
   ];

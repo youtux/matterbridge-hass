@@ -212,11 +212,12 @@ describe('addControlEntity', () => {
     expect(md.addClusterServerCoolingThermostat).toHaveBeenCalled();
   });
 
-  it('climate with FAN_MODE feature adds basic fan control cluster', () => {
+  it('climate with FAN_MODE feature adds basic fan control cluster and fan device type', () => {
     const [md, e, s] = make('climate', 'fancoil', { hvac_modes: ['heat', 'cool'], supported_features: 8 /* FAN_MODE */, fan_modes: ['min', 'medium', 'max', 'auto'], fan_mode: 'auto' });
     addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
     // @ts-expect-error chainable return
     expect(md.addClusterServerBasicFanControl).toHaveBeenCalledTimes(1);
+    expect(md.addDeviceTypes).toHaveBeenCalledWith(e.entity_id, fan);
   });
 
   it('climate with FAN_MODE and each fan mode maps to correct initial Matter FanMode', () => {
