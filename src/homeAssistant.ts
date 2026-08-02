@@ -586,8 +586,8 @@ export interface HassStateClimateAttributes {
   hvac_action?: HVACAction | null; // Current HVAC action
   preset_modes?: ('none' | 'eco' | 'away' | 'boost' | 'comfort' | 'home' | 'sleep' | 'activity')[]; // List of supported preset modes
   preset_mode?: 'none' | 'eco' | 'away' | 'boost' | 'comfort' | 'home' | 'sleep' | 'activity' | null; // Current preset mode
-  fan_modes?: ('on' | 'off' | 'auto' | 'low' | 'medium' | 'high' | 'top' | 'middle' | 'focus' | 'diffuse')[]; // List of supported fan modes
-  fan_mode?: 'on' | 'off' | 'auto' | 'low' | 'medium' | 'high' | 'top' | 'middle' | 'focus' | 'diffuse' | null; // Current fan mode
+  fan_modes?: ('on' | 'off' | 'auto' | 'low' | 'min' | 'medium' | 'middle' | 'high' | 'max' | 'top' | 'focus' | 'diffuse')[]; // List of supported fan modes
+  fan_mode?: 'on' | 'off' | 'auto' | 'low' | 'min' | 'medium' | 'middle' | 'high' | 'max' | 'top' | 'focus' | 'diffuse' | null; // Current fan mode
   current_humidity: number | null; // Current humidity of the climate entity
   current_temperature: number | null; // Current temperature of the climate entity
   temperature?: number | null; // Target temperature setting for the climate entity (not in heat_cool thermostats)
