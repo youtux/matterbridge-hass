@@ -555,6 +555,18 @@ describe('MutableDevice', () => {
     mutableDevice.destroy();
   });
 
+  it('should addClusterServerBasicFanControl', () => {
+    const mutableDevice = new MutableDevice(mockMatterbridge, 'Test Device basic fan control');
+    mutableDevice.addDeviceTypes('', bridgedNode, thermostat);
+    mutableDevice.addClusterServerBasicFanControl('');
+
+    expect(mutableDevice.get()).toBeDefined();
+    expect(mutableDevice.get().clusterServersIds).toHaveLength(0);
+    expect(mutableDevice.get().clusterServersObjs).toHaveLength(1);
+
+    mutableDevice.destroy();
+  });
+
   it('should addVacuum', () => {
     const mutableDevice = new MutableDevice(mockMatterbridge, 'Test Device vacuum');
     mutableDevice.addDeviceTypes('', bridgedNode, roboticVacuumCleaner);

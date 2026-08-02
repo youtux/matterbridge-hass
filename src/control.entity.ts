@@ -24,10 +24,10 @@
 /* oxlint-disable typescript/no-explicit-any */
 /* oxlint-disable typescript/restrict-template-expressions */
 
-import { colorTemperatureLight, dimmableLight, extendedColorLight, type MatterbridgeEndpoint, type PrimitiveTypes } from 'matterbridge';
+import { colorTemperatureLight, dimmableLight, extendedColorLight, fan, type MatterbridgeEndpoint, type PrimitiveTypes } from 'matterbridge';
 import { CYAN, db, debugStringify } from 'matterbridge/logger';
 import type { ActionContext } from 'matterbridge/matter';
-import { LevelControl } from 'matterbridge/matter/clusters';
+import { FanControl, LevelControl } from 'matterbridge/matter/clusters';
 import { type ClusterId, getClusterNameById } from 'matterbridge/matter/types';
 import { isValidArray, isValidBoolean, isValidNumber, isValidString } from 'matterbridge/utils';
 
@@ -198,6 +198,26 @@ export function addControlEntity(
     } else {
       platform.log.debug(`= thermostat device ${CYAN}${entity.entity_id}${db} state ${CYAN}${state.attributes['hvac_modes']}${db} default temperature: ${CYAN}${temperature}${db}`);
     }
+  }
+
+  // Configure the FanControl cluster for climate entities with fan mode support.
+  // oxfmt-ignore
+  if (domain === 'climate' && isValidNumber(state.attributes?.supported_features) &&
+    // oxlint-disable-next-line no-bitwise
+    (state.attributes.supported_features & ClimateEntityFeature.FAN_MODE) !== 0 &&
+    isValidArray(state.attributes?.fan_modes, 1) &&
+    endpointName !== undefined) {
+    platform.log.debug(`= thermostat device ${CYAN}${entity.entity_id}${db} fan_modes: ${CYAN}${state.attributes['fan_modes']}${db} fan_mode: ${CYAN}${state.attributes['fan_mode']}${db}`);
+    const fanModeStr = state.attributes['fan_mode'];
+    let initialFanMode: FanControl.FanMode = FanControl.FanMode.Auto;
+    let initialPercentCurrent = 50;
+    if (fanModeStr === 'off') { initialFanMode = FanControl.FanMode.Off; initialPercentCurrent = 0; }
+    else if (fanModeStr === 'low' || fanModeStr === 'min') { initialFanMode = FanControl.FanMode.Low; initialPercentCurrent = 25; }
+    else if (fanModeStr === 'medium' || fanModeStr === 'middle') { initialFanMode = FanControl.FanMode.Medium; initialPercentCurrent = 50; }
+    else if (fanModeStr === 'high' || fanModeStr === 'max' || fanModeStr === 'top') { initialFanMode = FanControl.FanMode.High; initialPercentCurrent = 100; }
+    else if (fanModeStr === 'on' || fanModeStr === 'focus' || fanModeStr === 'diffuse') { initialFanMode = FanControl.FanMode.On; initialPercentCurrent = 50; }
+    mutableDevice.addClusterServerBasicFanControl(endpointName, initialFanMode, undefined, initialPercentCurrent);
+    mutableDevice.addDeviceTypes(endpointName, fan);
   }
 
   // Configure the FanControl cluster default values and features.

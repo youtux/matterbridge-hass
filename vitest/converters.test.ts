@@ -440,6 +440,12 @@ describe('HassPlatform converters', () => {
         } as HassConfig;
         expect(converter.converter(1000)).toBe(10);
       }
+      if (converter.domain === 'climate' && converter.attribute === 'percentSetting' && converter.converter) {
+        expect(converter.converter(0)).toBe(null);
+        expect(converter.converter(25)).toBe('low');
+        expect(converter.converter(50)).toBe('medium');
+        expect(converter.converter(100)).toBe('high');
+      }
     });
   });
 
@@ -469,6 +475,79 @@ describe('HassPlatform converters', () => {
     if (!c?.converter) return;
     expect(c.converter(-1 as any)).toBe(null); // below range
     expect(c.converter(999 as any)).toBe(null); // above range
+  });
+
+  it('climate fan_mode update converter maps HA strings to FanMode values', () => {
+    const c = hassUpdateAttributeConverter.find((x) => x.domain === 'climate' && x.with === 'fan_mode' && x.attribute === 'fanMode');
+    expect(c).toBeDefined();
+    if (!c?.converter) return;
+    expect(c.converter('off', {} as HassState)).toBe(FanControl.FanMode.Off);
+    expect(c.converter('low', {} as HassState)).toBe(FanControl.FanMode.Low);
+    expect(c.converter('min', {} as HassState)).toBe(FanControl.FanMode.Low);
+    expect(c.converter('medium', {} as HassState)).toBe(FanControl.FanMode.Medium);
+    expect(c.converter('middle', {} as HassState)).toBe(FanControl.FanMode.Medium);
+    expect(c.converter('high', {} as HassState)).toBe(FanControl.FanMode.High);
+    expect(c.converter('max', {} as HassState)).toBe(FanControl.FanMode.High);
+    expect(c.converter('top', {} as HassState)).toBe(FanControl.FanMode.High);
+    // oxlint-disable-next-line typescript/no-deprecated
+    expect(c.converter('on', {} as HassState)).toBe(FanControl.FanMode.On);
+    expect(c.converter('focus', {} as HassState)).toBe(FanControl.FanMode.On);
+    expect(c.converter('diffuse', {} as HassState)).toBe(FanControl.FanMode.On);
+    expect(c.converter('auto', {} as HassState)).toBe(FanControl.FanMode.Auto);
+    expect(c.converter('unknown_mode', {} as HassState)).toBe(null);
+    expect(c.converter('', {} as HassState)).toBe(null);
+    expect(c.converter(null as any, {} as HassState)).toBe(null);
+  });
+
+  it('climate set_fan_mode subscribe converter maps FanMode values to HA strings', () => {
+    const c = hassSubscribeConverter.find((x) => x.domain === 'climate' && x.service === 'set_fan_mode' && x.with === 'fan_mode');
+    expect(c).toBeDefined();
+    if (!c?.converter) return;
+    expect(c.converter(FanControl.FanMode.Off)).toBe('off');
+    expect(c.converter(FanControl.FanMode.Low)).toBe('low');
+    expect(c.converter(FanControl.FanMode.Medium)).toBe('medium');
+    expect(c.converter(FanControl.FanMode.High)).toBe('high');
+    // oxlint-disable-next-line typescript/no-deprecated
+    expect(c.converter(FanControl.FanMode.On)).toBe('on');
+    expect(c.converter(FanControl.FanMode.Auto)).toBe('auto');
+    // oxlint-disable-next-line typescript/no-deprecated
+    expect(c.converter(FanControl.FanMode.Smart)).toBe('auto');
+  });
+
+  it('climate percentSetting subscribe converter maps percentage ranges to fan mode strings', () => {
+    const c = hassSubscribeConverter.find((x) => x.domain === 'climate' && x.service === 'set_fan_mode' && x.with === 'fan_mode' && x.attribute === 'percentSetting');
+    expect(c).toBeDefined();
+    if (!c?.converter) return;
+    expect(c.converter(0)).toBe(null); // triggers turn_off
+    expect(c.converter(1)).toBe('low');
+    expect(c.converter(33)).toBe('low');
+    expect(c.converter(34)).toBe('medium');
+    expect(c.converter(66)).toBe('medium');
+    expect(c.converter(67)).toBe('high');
+    expect(c.converter(100)).toBe('high');
+    expect(c.converter(-1)).toBe(null); // invalid
+    expect(c.converter(101)).toBe(null); // invalid
+  });
+
+  it('climate fan_mode update converter maps HA strings to percentCurrent values', () => {
+    const c = hassUpdateAttributeConverter.find((x) => x.domain === 'climate' && x.with === 'fan_mode' && x.attribute === 'percentCurrent');
+    expect(c).toBeDefined();
+    if (!c?.converter) return;
+    expect(c.converter('off', {} as HassState)).toBe(0);
+    expect(c.converter('low', {} as HassState)).toBe(25);
+    expect(c.converter('min', {} as HassState)).toBe(25);
+    expect(c.converter('medium', {} as HassState)).toBe(50);
+    expect(c.converter('middle', {} as HassState)).toBe(50);
+    expect(c.converter('high', {} as HassState)).toBe(100);
+    expect(c.converter('max', {} as HassState)).toBe(100);
+    expect(c.converter('top', {} as HassState)).toBe(100);
+    expect(c.converter('on', {} as HassState)).toBe(50);
+    expect(c.converter('focus', {} as HassState)).toBe(50);
+    expect(c.converter('diffuse', {} as HassState)).toBe(50);
+    expect(c.converter('auto', {} as HassState)).toBe(null);
+    expect(c.converter('unknown_mode', {} as HassState)).toBe(null);
+    expect(c.converter('', {} as HassState)).toBe(null);
+    expect(c.converter(null as any, {} as HassState)).toBe(null);
   });
 
   describe('convertMatterXYToHA', () => {

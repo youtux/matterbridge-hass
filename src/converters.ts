@@ -440,6 +440,32 @@ export const hassUpdateAttributeConverter: { domain: string; with: string; clust
     { domain: 'climate', with: 'target_temp_low',     clusterId: Thermostat.id, attribute: 'occupiedHeatingSetpoint', converter: (value: number, state: HassState) => (isValidNumber(value) && (state.attributes?.hvac_modes?.includes(HVACMode.HEAT_COOL) || state.attributes?.hvac_modes?.includes(HVACMode.HEAT)) ? Math.round(temp(value, HomeAssistant.hassConfig?.unit_system?.temperature) * 100) : null) },
     { domain: 'climate', with: 'current_temperature', clusterId: Thermostat.id, attribute: 'localTemperature', converter: (value: number) => (isValidNumber(value) ? Math.round(temp(value, HomeAssistant.hassConfig?.unit_system?.temperature) * 100) : null) },
 
+    { domain: 'climate', with: 'fan_mode', clusterId: FanControl.id, attribute: 'fanMode', converter: (value: string) => {
+      if (isValidString(value)) {
+        if (value === 'off') return FanControl.FanMode.Off;
+        else if (value === 'low' || value === 'min') return FanControl.FanMode.Low;
+        else if (value === 'medium' || value === 'middle') return FanControl.FanMode.Medium;
+        else if (value === 'high' || value === 'max' || value === 'top') return FanControl.FanMode.High;
+        else if (value === 'on' || value === 'focus' || value === 'diffuse') return FanControl.FanMode.On;
+        else if (value === 'auto') return FanControl.FanMode.Auto;
+        else return null;
+      } else {
+        return null;
+      }
+    } },
+    { domain: 'climate', with: 'fan_mode', clusterId: FanControl.id, attribute: 'percentCurrent', converter: (value: string) => {
+      if (isValidString(value)) {
+        if (value === 'off') return 0;
+        else if (value === 'low' || value === 'min') return 25;
+        else if (value === 'medium' || value === 'middle') return 50;
+        else if (value === 'high' || value === 'max' || value === 'top') return 100;
+        else if (value === 'on' || value === 'focus' || value === 'diffuse') return 50;
+        else return null; // 'auto' and unknown modes: leave percentCurrent unchanged
+      } else {
+        return null;
+      }
+    } },
+
     { domain: 'valve', with: 'current_position', clusterId: ValveConfigurationAndControl.id, attribute: 'currentLevel', converter: (value: number) => (isValidNumber(value, 0, 100) ? Math.round(value) : null) },
   ];
 
@@ -620,4 +646,20 @@ export const hassSubscribeConverter: { domain: string; service: string; with: st
     }},
     { domain: 'climate',  service: 'set_temperature', with: 'temperature',  clusterId: Thermostat.id,  attribute: 'occupiedHeatingSetpoint', converter: (value) => { return tempToFahrenheit(value / 100) } },
     { domain: 'climate',  service: 'set_temperature', with: 'temperature',  clusterId: Thermostat.id,  attribute: 'occupiedCoolingSetpoint', converter: (value) => { return tempToFahrenheit(value / 100) } },
+
+    { domain: 'climate',  service: 'set_fan_mode',    with: 'fan_mode',     clusterId: FanControl.id,  attribute: 'fanMode', converter: (value: FanControl.FanMode) => {
+      if (value === FanControl.FanMode.Off) return 'off';
+      else if (value === FanControl.FanMode.Low) return 'low';
+      else if (value === FanControl.FanMode.Medium) return 'medium';
+      else if (value === FanControl.FanMode.High) return 'high';
+      else if (value === FanControl.FanMode.On) return 'on';
+      else return 'auto'; // FanControl.FanMode.Auto, FanControl.FanMode.Smart
+    } },
+    { domain: 'climate',  service: 'set_fan_mode',    with: 'fan_mode',     clusterId: FanControl.id,  attribute: 'percentSetting', converter: (value: number) => {
+      if (!isValidNumber(value, 0, 100)) return null;
+      if (value === 0) return null; // triggers turn_off
+      else if (value <= 33) return 'low';
+      else if (value <= 66) return 'medium';
+      else return 'high';
+    } },
   ]

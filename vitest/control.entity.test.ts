@@ -51,6 +51,7 @@ function createMockMutableDevice(): MutableDevice {
     addClusterServerCoolingThermostat: vi.fn(),
     addClusterServerHeatingCoolingThermostat: vi.fn(),
     addClusterServerCompleteFanControl: vi.fn(),
+    addClusterServerBasicFanControl: vi.fn(),
     addVacuum: vi.fn(),
     addSelect: vi.fn(),
     addOnOff: vi.fn(),
@@ -209,6 +210,53 @@ describe('addControlEntity', () => {
     [md, e, s] = make('climate', 'cool', { hvac_modes: ['cool'], current_temperature: 24, temperature: 22 });
     addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
     expect(md.addClusterServerCoolingThermostat).toHaveBeenCalled();
+  });
+
+  it('climate with FAN_MODE feature adds basic fan control cluster and fan device type', () => {
+    const [md, e, s] = make('climate', 'fancoil', { hvac_modes: ['heat', 'cool'], supported_features: 8 /* FAN_MODE */, fan_modes: ['min', 'medium', 'max', 'auto'], fan_mode: 'auto' });
+    addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
+    // @ts-expect-error chainable return
+    expect(md.addClusterServerBasicFanControl).toHaveBeenCalledTimes(1);
+    expect(md.addDeviceTypes).toHaveBeenCalledWith(e.entity_id, fan);
+  });
+
+  it('climate with FAN_MODE and each fan mode maps to correct initial Matter FanMode and percentCurrent', () => {
+    const fanModeMapping = [
+      { ha: 'off', expectedIdx: 0, expectedPercent: 0 },
+      { ha: 'low', expectedIdx: 1, expectedPercent: 25 },
+      { ha: 'min', expectedIdx: 1, expectedPercent: 25 },
+      { ha: 'medium', expectedIdx: 2, expectedPercent: 50 },
+      { ha: 'middle', expectedIdx: 2, expectedPercent: 50 },
+      { ha: 'high', expectedIdx: 3, expectedPercent: 100 },
+      { ha: 'max', expectedIdx: 3, expectedPercent: 100 },
+      { ha: 'top', expectedIdx: 3, expectedPercent: 100 },
+      { ha: 'on', expectedIdx: 4, expectedPercent: 50 },
+      { ha: 'auto', expectedIdx: 5, expectedPercent: 50 },
+      { ha: 'unknown', expectedIdx: 5, expectedPercent: 50 },
+    ];
+    for (const { ha, expectedIdx, expectedPercent } of fanModeMapping) {
+      const [md, e, s] = make('climate', 'fancoil', { hvac_modes: ['heat'], supported_features: 8, fan_modes: [ha], fan_mode: ha });
+      addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
+      // @ts-expect-error chainable return
+      const calls = md.addClusterServerBasicFanControl.mock.calls;
+      expect(calls.length).toBe(1);
+      expect(calls[0][1]).toBe(expectedIdx);
+      expect(calls[0][3]).toBe(expectedPercent);
+    }
+  });
+
+  it('climate without FAN_MODE feature does not add fan control cluster', () => {
+    const [md, e, s] = make('climate', 'nofan', { hvac_modes: ['heat'], supported_features: 1 /* TARGET_TEMPERATURE only */ });
+    addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
+    // @ts-expect-error chainable return
+    expect(md.addClusterServerBasicFanControl).not.toHaveBeenCalled();
+  });
+
+  it('climate FAN_MODE without fan_modes array does not add fan control cluster', () => {
+    const [md, e, s] = make('climate', 'nofanmodes', { hvac_modes: ['heat'], supported_features: 8 /* FAN_MODE */ });
+    addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
+    // @ts-expect-error chainable return
+    expect(md.addClusterServerBasicFanControl).not.toHaveBeenCalled();
   });
 
   it('fan extended features when direction/oscillating, basic otherwise', () => {

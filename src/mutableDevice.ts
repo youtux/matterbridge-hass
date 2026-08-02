@@ -724,6 +724,24 @@ export class MutableDevice {
     return this;
   }
 
+  addClusterServerBasicFanControl(
+    endpoint: string,
+    fanMode: FanControl.FanMode = FanControl.FanMode.Auto,
+    fanModeSequence: FanControl.FanModeSequence = FanControl.FanModeSequence.OffLowMedHighAuto,
+    percentCurrent: number = 0,
+  ): this {
+    const device = this.initializeEndpoint(endpoint);
+    device.clusterServersObjs.push(
+      getClusterServerObj(FanControl.id, MatterbridgeFanControlServer.with(FanControl.Feature.Auto, FanControl.Feature.Step), {
+        fanMode,
+        fanModeSequence,
+        percentSetting: percentCurrent,
+        percentCurrent,
+      }),
+    );
+    return this;
+  }
+
   addClusterServerCompleteFanControl(
     endpoint: string,
     fanMode: FanControl.FanMode = FanControl.FanMode.Off,
