@@ -31,6 +31,7 @@ import {
   powerSource,
   pressureSensor,
   roboticVacuumCleaner,
+  roomAirConditioner,
   smokeCoAlarm,
   temperatureSensor,
   thermostat,
@@ -594,6 +595,19 @@ describe('MutableDevice', () => {
     mutableDevice.destroy();
   });
 
+  it('should addClusterServerDefaultFanControl with null percentSetting in Auto mode', () => {
+    const mutableDevice = new MutableDevice(mockMatterbridge, 'Test Device default fan control auto null');
+    mutableDevice.addDeviceTypes('', bridgedNode, thermostat);
+    mutableDevice.addClusterServerDefaultFanControl('', FanControl.FanMode.Auto, FanControl.FanModeSequence.OffLowMedHighAuto, null, 50);
+
+    expect(mutableDevice.get()).toBeDefined();
+    expect(mutableDevice.get().clusterServersObjs).toHaveLength(1);
+    expect((mutableDevice.get().clusterServersObjs[0].options as any)?.percentSetting).toBeNull();
+    expect((mutableDevice.get().clusterServersObjs[0].options as any)?.percentCurrent).toBe(50);
+
+    mutableDevice.destroy();
+  });
+
   it('should addClusterServerCompleteFanControl', () => {
     const mutableDevice = new MutableDevice(mockMatterbridge, 'Test Device complete fan control');
     mutableDevice.addDeviceTypes('', bridgedNode, thermostat);
@@ -663,6 +677,28 @@ describe('MutableDevice', () => {
     expect(mutableDevice.get().clusterServersIds).toHaveLength(0);
     expect(mutableDevice.get().clusterServersObjs).toHaveLength(1);
 
+    mutableDevice.destroy();
+  });
+
+  it('should addDeadFrontOnOff', () => {
+    const mutableDevice = new MutableDevice(mockMatterbridge, 'Test Device dead front on off');
+    mutableDevice.addDeviceTypes('', bridgedNode, roomAirConditioner);
+    mutableDevice.addDeadFrontOnOff('', true);
+
+    expect(mutableDevice.get()).toBeDefined();
+    expect(mutableDevice.get().clusterServersIds).toHaveLength(0);
+    expect(mutableDevice.get().clusterServersObjs).toHaveLength(1);
+
+    mutableDevice.destroy();
+  });
+
+  it('should supersede thermostat when roomAirConditioner is present', () => {
+    const mutableDevice = new MutableDevice(mockMatterbridge, 'Test Device RAC superset');
+    mutableDevice.addDeviceTypes('', bridgedNode, thermostat, roomAirConditioner);
+    device = mutableDevice.create();
+    expect(device).toBeDefined();
+    expect(mutableDevice.get().deviceTypes).toContain(roomAirConditioner);
+    expect(mutableDevice.get().deviceTypes).not.toContain(thermostat);
     mutableDevice.destroy();
   });
 
@@ -1246,6 +1282,23 @@ describe('MutableDevice', () => {
     expect(device.getChildEndpoints().length).toBe(0);
 
     await addDevice(aggregator, device);
+    mutableDevice.destroy();
+  });
+
+  it('should not remap fan child endpoint onto thermostat main endpoint during create(true)', () => {
+    const mutableDevice = new MutableDevice(mockMatterbridge, 'Test Device no fan remap on thermostat');
+    mutableDevice.addDeviceTypes('', bridgedNode, thermostat);
+    mutableDevice.addDeviceTypes('fan', fan);
+    mutableDevice.addClusterServerDefaultFanControl('fan');
+
+    expect(mutableDevice.size()).toBe(2);
+    device = mutableDevice.create(true);
+    expect(device).toBeDefined();
+    expect(mutableDevice.size()).toBe(2); // stays 2, fan is NOT remapped to thermostat
+    expect(mutableDevice.getRemappedEndpoints().size).toBe(0);
+    expect(mutableDevice.getSplitEndpoints().size).toBe(1);
+    expect(Array.from(mutableDevice.getSplitEndpoints())).toEqual(['fan']);
+
     mutableDevice.destroy();
   });
 

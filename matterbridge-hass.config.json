@@ -23,6 +23,7 @@
   "postfix": "",
   "airQualityRegex": "",
   "enableServerRvc": true,
+  "climateRoomAirConditioner": false,
   "discardHiddenEntities": true,
   "virtualControlLabel": "",
   "debug": false,

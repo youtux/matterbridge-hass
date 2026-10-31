@@ -24,14 +24,16 @@
 /* oxlint-disable typescript/no-explicit-any */
 /* oxlint-disable typescript/restrict-template-expressions */
 
-import { colorTemperatureLight, dimmableLight, extendedColorLight, type MatterbridgeEndpoint, type PrimitiveTypes } from 'matterbridge';
+import { colorTemperatureLight, dimmableLight, extendedColorLight, fan, type MatterbridgeEndpoint, type PrimitiveTypes, roomAirConditioner } from 'matterbridge';
 import { CYAN, db, debugStringify, nf, wr } from 'matterbridge/logger';
 import type { ActionContext } from 'matterbridge/matter';
-import { ColorControl, LevelControl } from 'matterbridge/matter/clusters';
+import { ColorControl, FanControl, LevelControl } from 'matterbridge/matter/clusters';
 import { type ClusterId, getClusterNameById } from 'matterbridge/matter/types';
 import { isValidArray, isValidBoolean, isValidNumber, isValidString } from 'matterbridge/utils';
 
 import {
+  convertHAClimateFanModeToMatter,
+  convertHAClimateFanPercentToMatter,
   convertHAFanPresetModesToMatter,
   convertHAFanPresetModeToMatter,
   getFeatureNames,
@@ -226,6 +228,46 @@ export function addControlEntity(
     } else {
       platform.log.debug(`= thermostat device ${CYAN}${entity.entity_id}${db} state ${CYAN}${state.attributes['hvac_modes']}${db} default temperature: ${CYAN}${temperature}${db}`);
     }
+    if (platform.config.climateRoomAirConditioner) {
+      mutableDevice.addDeviceTypes(endpointName, roomAirConditioner);
+      mutableDevice.addDeadFrontOnOff(endpointName, state.state !== 'off');
+      if (isValidArray(state.attributes['fan_modes'], 1)) {
+        platform.log.debug(`= roomAirConditioner device ${CYAN}${entity.entity_id}${db} fan_modes: ${CYAN}${state.attributes['fan_modes']}${db} fan_mode: ${CYAN}${state.attributes['fan_mode']}${db}`);
+        const fanModes = state.attributes['fan_modes'];
+        const fanModeStr = state.attributes['fan_mode'];
+        const isAuto = fanModeStr === 'auto';
+        const initialFanMode = convertHAClimateFanModeToMatter(fanModeStr) ?? (fanModes.includes('auto') ? FanControl.FanMode.Auto : FanControl.FanMode.Low);
+        const initialPercentCurrent = convertHAClimateFanPercentToMatter(fanModeStr) ?? 50;
+        const initialPercentSetting = isAuto ? null : initialPercentCurrent;
+        mutableDevice.addClusterServerDefaultFanControl(
+          endpointName,
+          initialFanMode,
+          convertHAFanPresetModesToMatter(state.attributes['fan_modes']),
+          initialPercentSetting,
+          initialPercentCurrent,
+        );
+      }
+    } else if (isValidArray(state.attributes['fan_modes'], 1)) {
+      platform.log.debug(`= thermostat child fan device ${CYAN}${entity.entity_id}${db} fan_modes: ${CYAN}${state.attributes['fan_modes']}${db} fan_mode: ${CYAN}${state.attributes['fan_mode']}${db}`);
+      const fanEndpointName = 'fan';
+      mutableDevice.addDeviceTypes(fanEndpointName, fan);
+      const fanModes = state.attributes['fan_modes'];
+      const fanModeStr = state.attributes['fan_mode'];
+      const isAuto = fanModeStr === 'auto';
+      const initialFanMode = convertHAClimateFanModeToMatter(fanModeStr) ?? (fanModes.includes('auto') ? FanControl.FanMode.Auto : FanControl.FanMode.Low);
+      const initialPercentCurrent = convertHAClimateFanPercentToMatter(fanModeStr) ?? 50;
+      const initialPercentSetting = isAuto ? null : initialPercentCurrent;
+      mutableDevice.addClusterServerDefaultFanControl(
+        fanEndpointName,
+        initialFanMode,
+        convertHAFanPresetModesToMatter(state.attributes['fan_modes']),
+        initialPercentSetting,
+        initialPercentCurrent,
+      );
+      if (isValidString(state.attributes['friendly_name'])) {
+        mutableDevice.setFriendlyName(fanEndpointName, `${state.attributes['friendly_name']} Fan`);
+      }
+    }
   }
 
   /*
@@ -348,6 +390,7 @@ export function addControlEntity(
 
   // Add command handlers
   for (const hassCommand of hassCommandConverter.filter((c) => c.domain === domain)) {
+    if (domain === 'climate' && !platform.config.climateRoomAirConditioner) continue;
     platform.log.debug(`- command: ${CYAN}${hassCommand.command}${db}`);
     mutableDevice.addCommandHandler(entity.entity_id, hassCommand.command, (data, endpointName, command) => {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion no-empty-function
@@ -357,9 +400,11 @@ export function addControlEntity(
 
   // Add subscribe handlers
   for (const hassSubscribe of hassSubscribeConverter.filter((s) => s.domain === domain)) {
+    if (domain === 'climate' && hassSubscribe.clusterId === FanControl.id && !isValidArray(state.attributes['fan_modes'], 1)) continue;
+    const targetEndpointName = domain === 'climate' && !platform.config.climateRoomAirConditioner && hassSubscribe.clusterId === FanControl.id ? 'fan' : entity.entity_id;
     platform.log.debug(`- subscribe: ${CYAN}${getClusterNameById(hassSubscribe.clusterId)}${db}:${CYAN}${hassSubscribe.attribute}${db}`);
     mutableDevice.addSubscribeHandler(
-      entity.entity_id,
+      targetEndpointName,
       hassSubscribe.clusterId,
       hassSubscribe.attribute,
       (newValue: any, oldValue: any, context: ActionContext, _endpointName: string, _clusterId: ClusterId, _attribute: string) => {

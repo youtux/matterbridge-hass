@@ -26,6 +26,12 @@ If you like this project and find it useful, please consider giving it a star on
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- [climate]: Add `climateRoomAirConditioner` config option to expose climate entities as Room Air Conditioner (`0x0072`) with On/Off and optional FanControl.
+
 ## [1.6.1] - 2026-10-31
 
 ### Added

@@ -13,11 +13,12 @@ import {
   onOffLight,
   onOffPlugInUnit,
   roboticVacuumCleaner,
+  roomAirConditioner,
   thermostat,
   waterValve,
   windowCovering,
 } from 'matterbridge';
-import { ColorControl, LevelControl, OnOff } from 'matterbridge/matter/clusters';
+import { ColorControl, FanControl, LevelControl, OnOff } from 'matterbridge/matter/clusters';
 
 import { addControlEntity } from '../src/control.entity.js';
 import { hassCommandConverter, hassDomainConverter, hassSubscribeConverter } from '../src/converters.js';
@@ -65,6 +66,7 @@ function createMockMutableDevice(): MutableDevice {
     addValve: vi.fn(),
     addSelect: vi.fn(),
     addOnOff: vi.fn(),
+    addDeadFrontOnOff: vi.fn(),
     addBasicVideoPlayer: vi.fn(),
     addKeypadInput: vi.fn(),
     addCommandHandler: vi.fn(),
@@ -267,6 +269,111 @@ describe('addControlEntity', () => {
     [md, e, s] = make('climate', 'cool', { hvac_modes: ['cool'], current_temperature: 24, temperature: 22 });
     addControlEntity(mockPlatform, md, e, s, commandHandler, subscribeHandler as any);
     expect(md.addClusterServerCoolingThermostat).toHaveBeenCalled();
+  });
+
+  it('climate when climateRoomAirConditioner is disabled creates thermostat with child fan endpoint when fan_modes is present', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: false } };
+    const [md, e, s] = make('climate', 'ac', { hvac_modes: ['cool'], fan_modes: ['low', 'high'], fan_mode: 'low', friendly_name: 'Office AC' });
+    addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+    expect(md.addDeviceTypes).toHaveBeenCalledWith(e.entity_id, thermostat);
+    expect(md.addDeviceTypes).not.toHaveBeenCalledWith(e.entity_id, roomAirConditioner);
+    expect(md.addDeadFrontOnOff).not.toHaveBeenCalled();
+    expect(md.addDeviceTypes).toHaveBeenCalledWith('fan', fan);
+    expect(md.addClusterServerDefaultFanControl).toHaveBeenCalledWith('fan', FanControl.FanMode.Low, FanControl.FanModeSequence.OffLowHigh, 25, 25);
+    expect(md.setFriendlyName).toHaveBeenCalledWith('fan', 'Office AC Fan');
+  });
+
+  it('climate when climateRoomAirConditioner is disabled creates thermostat with child fan endpoint in auto mode without friendly_name', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: false } };
+    const [md, e, s] = make('climate', 'ac_auto', { hvac_modes: ['cool'], fan_modes: ['auto', 'low', 'high'], fan_mode: 'auto' });
+    delete s.attributes['friendly_name'];
+    addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+    expect(md.addDeviceTypes).toHaveBeenCalledWith('fan', fan);
+    expect(md.addClusterServerDefaultFanControl).toHaveBeenCalledWith('fan', FanControl.FanMode.Auto, FanControl.FanModeSequence.OffLowHighAuto, null, 50);
+  });
+
+  it('climate when climateRoomAirConditioner is disabled with unknown fan_mode and no auto defaults to Low', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: false } };
+    const [md, e, s] = make('climate', 'ac_unknown', { hvac_modes: ['cool'], fan_modes: ['low', 'high'], fan_mode: 'unknown' });
+    addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+    expect(md.addClusterServerDefaultFanControl).toHaveBeenCalledWith('fan', FanControl.FanMode.Low, FanControl.FanModeSequence.OffLowHigh, 50, 50);
+  });
+
+  it('climate when climateRoomAirConditioner is disabled with unknown fan_mode and auto present defaults to Auto', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: false } };
+    const [md, e, s] = make('climate', 'ac_unknown_auto', { hvac_modes: ['cool'], fan_modes: ['auto', 'low', 'high'], fan_mode: 'unknown' });
+    addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+    expect(md.addClusterServerDefaultFanControl).toHaveBeenCalledWith('fan', FanControl.FanMode.Auto, FanControl.FanModeSequence.OffLowHighAuto, 50, 50);
+  });
+
+  it('climate when climateRoomAirConditioner is disabled without fan_modes creates thermostat without fan child endpoint', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: false } };
+    const [md, e, s] = make('climate', 'ac_no_fan', { hvac_modes: ['cool'] });
+    addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+    expect(md.addDeviceTypes).toHaveBeenCalledWith(e.entity_id, thermostat);
+    expect(md.addClusterServerDefaultFanControl).not.toHaveBeenCalled();
+  });
+
+  it('climate when climateRoomAirConditioner is enabled without fan_modes creates roomAirConditioner with deadFront OnOff but without fanControl', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: true } };
+    const [md, e, s] = make('climate', 'ac', { hvac_modes: ['cool'] });
+    s.state = 'cool';
+    addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+    expect(md.addDeviceTypes).toHaveBeenCalledWith(e.entity_id, roomAirConditioner);
+    expect(md.addDeadFrontOnOff).toHaveBeenCalledWith(e.entity_id, true);
+    expect(md.addClusterServerDefaultFanControl).not.toHaveBeenCalled();
+
+    // off state sets onOff to false
+    const [mdOff, eOff, sOff] = make('climate', 'ac_off', { hvac_modes: ['cool'] });
+    sOff.state = 'off';
+    addControlEntity(platform, mdOff, eOff, sOff, commandHandler, subscribeHandler as any);
+    expect(mdOff.addDeadFrontOnOff).toHaveBeenCalledWith(eOff.entity_id, false);
+  });
+
+  it('climate when climateRoomAirConditioner is enabled with fan_modes adds fanControl and maps fan modes', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: true } };
+    const fanModeMapping = [
+      { ha: 'off', expectedIdx: FanControl.FanMode.Off, expectedPercent: 0 },
+      { ha: 'low', expectedIdx: FanControl.FanMode.Low, expectedPercent: 25 },
+      { ha: 'min', expectedIdx: FanControl.FanMode.Low, expectedPercent: 25 },
+      { ha: 'medium', expectedIdx: FanControl.FanMode.Medium, expectedPercent: 50 },
+      { ha: 'middle', expectedIdx: FanControl.FanMode.Medium, expectedPercent: 50 },
+      { ha: 'high', expectedIdx: FanControl.FanMode.High, expectedPercent: 100 },
+      { ha: 'max', expectedIdx: FanControl.FanMode.High, expectedPercent: 100 },
+      { ha: 'top', expectedIdx: FanControl.FanMode.High, expectedPercent: 100 },
+      // oxlint-disable-next-line typescript/no-deprecated
+      { ha: 'on', expectedIdx: FanControl.FanMode.On, expectedPercent: 50 },
+      // oxlint-disable-next-line typescript/no-deprecated
+      { ha: 'focus', expectedIdx: FanControl.FanMode.On, expectedPercent: 50 },
+      // oxlint-disable-next-line typescript/no-deprecated
+      { ha: 'diffuse', expectedIdx: FanControl.FanMode.On, expectedPercent: 50 },
+      { ha: 'auto', expectedIdx: FanControl.FanMode.Auto, expectedPercent: 50, expectedSetting: null },
+      { ha: 'unknown', expectedIdx: FanControl.FanMode.Auto, expectedPercent: 50, expectedSetting: 50 },
+    ];
+    for (const { ha, expectedIdx, expectedPercent, expectedSetting } of fanModeMapping) {
+      const [md, e, s] = make('climate', `ac_${ha}`, { hvac_modes: ['cool'], fan_modes: ['low', 'medium', 'high', 'auto'], fan_mode: ha });
+      addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+      expect(md.addDeviceTypes).toHaveBeenCalledWith(e.entity_id, roomAirConditioner);
+      expect(md.addDeadFrontOnOff).toHaveBeenCalledWith(e.entity_id, true);
+      // @ts-expect-error chainable mock calls
+      const calls = md.addClusterServerDefaultFanControl.mock.calls;
+      expect(calls.length).toBe(1);
+      expect(calls[0][1]).toBe(expectedIdx);
+      expect(calls[0][2]).toBe(FanControl.FanModeSequence.OffLowMedHighAuto);
+      expect(calls[0][3]).toBe(expectedSetting !== undefined ? expectedSetting : expectedPercent);
+      expect(calls[0][4]).toBe(expectedPercent);
+    }
+  });
+
+  it('climate when climateRoomAirConditioner is enabled with fan_modes without auto defaults initialFanMode to Low', () => {
+    const platform = { ...mockPlatform, config: { ...mockPlatform.config, climateRoomAirConditioner: true } };
+    const [md, e, s] = make('climate', 'ac_no_auto', { hvac_modes: ['cool'], fan_modes: ['low', 'medium', 'high'] });
+    addControlEntity(platform, md, e, s, commandHandler, subscribeHandler as any);
+    // @ts-expect-error chainable mock calls
+    const calls = md.addClusterServerDefaultFanControl.mock.calls;
+    expect(calls.length).toBe(1);
+    expect(calls[0][1]).toBe(FanControl.FanMode.Low);
+    expect(calls[0][2]).toBe(FanControl.FanModeSequence.OffLowMedHigh);
   });
 
   it('fan extended features when direction/oscillating, basic otherwise', () => {
