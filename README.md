@@ -70,24 +70,28 @@ Pair Matterbridge to your controller.
 
 ## Supported device entities:
 
-| Domain       | Supported states                           | Supported attributes                                                                    |
-| ------------ | ------------------------------------------ | --------------------------------------------------------------------------------------- |
-| switch       | on, off                                    |                                                                                         |
-| light        | on, off                                    | brightness, color_mode, color_temp_kelvin, hs_color, xy_color                           |
-| lock         | locked, locking, unlocking, unlocked       |                                                                                         |
-| fan          | on, off                                    | percentage, preset_mode (1), direction, oscillating                                     |
-| cover        | open, closed, opening, closing             | current_position                                                                        |
-| climate      | off, heat, cool, heat_cool, auto           | current_temperature, temperature, target_temp_low, target_temp_high, min_temp, max_temp |
-| valve        | open, closed, opening, closing             | current_position                                                                        |
-| vacuum (2)   | idle, cleaning, paused, docked, returning  |                                                                                         |
-| button       |                                            |                                                                                         |
-| remote       | on, off                                    |                                                                                         |
-| select       |                                            | options                                                                                 |
-| media_player | on, off, play, pause, stop, previous, next |                                                                                         |
+| Domain       | Supported states                           | Supported attributes                                                                                  |
+| ------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| switch       | on, off                                    |                                                                                                       |
+| light        | on, off                                    | brightness, color_mode, color_temp_kelvin, hs_color, xy_color                                         |
+| lock         | locked, locking, unlocking, unlocked       |                                                                                                       |
+| fan          | on, off                                    | percentage, preset_mode (1), direction, oscillating                                                   |
+| cover        | open, closed, opening, closing             | current_position                                                                                      |
+| climate (3)  | off, heat, cool, heat_cool, auto           | current_temperature, temperature, target_temp_low, target_temp_high, min_temp, max_temp, fan_mode (4) |
+| valve        | open, closed, opening, closing             | current_position                                                                                      |
+| vacuum (2)   | idle, cleaning, paused, docked, returning  |                                                                                                       |
+| button       |                                            |                                                                                                       |
+| remote       | on, off                                    |                                                                                                       |
+| select       |                                            | options                                                                                               |
+| media_player | on, off, play, pause, stop, previous, next |                                                                                                       |
 
 (1) - Supported preset_modes: auto, low, medium, high.
 
 (2) - The Apple Home crashes if the Rvc is inside the bridge. If you pair with Apple Home use the server mode in the config (it will create an autonomous device with its QR code in the Devices panel of the Home page) and disable or split all other entities that are not the rvc.
+
+(3) - By default exposed as Thermostat (0x0301). If `climateRoomAirConditioner` is enabled, exposed as Room Air Conditioner (0x0072). Note: Room Air Conditioner is not officially supported by Google Home.
+
+(4) - Supported when `climateRoomAirConditioner` is enabled and the climate entity supports `fan_modes`.
 
 If the vacuum supports the `locate` feature, the Matter Identify command calls the `vacuum.locate` service when `identifyTime` is greater than zero.
 
@@ -333,6 +337,13 @@ If your setup has only one air quality sensor, you can simply put the exact enti
 Enable the Robot Vacuum Cleaner in server mode. Apple Home will crash unless you use this mode! Don't try it with Apple Home cause the bridge will become unstable even if you remove it after.
 
 In addition to this well known bugs, the rvc must be a single device, it cannot have any other device types like switch or whatever. So if your integration adds any other device types, blacklist or split them.
+
+### Climate Room Air Conditioner
+
+Expose Home Assistant climate entities as Matter Room Air Conditioner (`0x0072`) instead of standard Thermostat (`0x0301`). This adds On/Off control and allows climate entities with `fan_modes` to expose fan speed control via the `FanControl` cluster.
+
+> [!NOTE]
+> Room Air Conditioner (`0x0072`) is supported in Apple Home and other compliant Matter ecosystems, but is not officially supported by Google Home.
 
 ### Discard Hidden Entities
 

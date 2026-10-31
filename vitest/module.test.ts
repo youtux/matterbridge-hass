@@ -280,6 +280,16 @@ describe('HassPlatform', () => {
     expect(() => new HomeAssistantPlatform({ ...matterbridge, matterbridgeVersion: '3.8.0' }, log, mockConfig)).toThrow('This plugin requires Matterbridge version >= "3.11.0".');
   });
 
+  it('should initialize climateRoomAirConditioner config correctly', () => {
+    expect(haPlatform.config.climateRoomAirConditioner).toBe(false);
+
+    const platformWithRac = new HomeAssistantPlatform(matterbridge, log, { ...mockConfig, climateRoomAirConditioner: true });
+    expect(platformWithRac.config.climateRoomAirConditioner).toBe(true);
+
+    const platformWithInvalid = new HomeAssistantPlatform(matterbridge, log, { ...mockConfig, climateRoomAirConditioner: 'invalid' as any });
+    expect(platformWithInvalid.config.climateRoomAirConditioner).toBe(false);
+  });
+
   it('should validate with white and black list', () => {
     haPlatform.config.whiteList = ['white1', 'white2', 'white3'];
     haPlatform.config.blackList = ['black1', 'black2', 'black3'];

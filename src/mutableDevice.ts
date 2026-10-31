@@ -36,6 +36,7 @@ import {
   dimmablePlugInUnit,
   dimmerSwitch,
   extendedColorLight,
+  fan,
   MatterbridgeColorControlServer,
   MatterbridgeEndpoint,
   MatterbridgeFanControlServer,
@@ -48,6 +49,8 @@ import {
   onOffLightSwitch,
   onOffPlugInUnit,
   type PlatformMatterbridge,
+  roomAirConditioner,
+  thermostat,
 } from 'matterbridge';
 import {
   MatterbridgeKeypadInputServer,
@@ -750,7 +753,7 @@ export class MutableDevice {
     endpoint: string,
     fanMode: FanControl.FanMode = FanControl.FanMode.Off,
     fanModeSequence: FanControl.FanModeSequence = FanControl.FanModeSequence.OffLowMedHighAuto,
-    percentSetting: number = 0,
+    percentSetting: number | null = 0,
     percentCurrent: number = 0,
   ): this {
     const device = this.initializeEndpoint(endpoint);
@@ -778,7 +781,7 @@ export class MutableDevice {
     endpoint: string,
     fanMode: FanControl.FanMode = FanControl.FanMode.Off,
     fanModeSequence: FanControl.FanModeSequence = FanControl.FanModeSequence.OffLowMedHighAuto,
-    percentSetting: number = 0,
+    percentSetting: number | null = 0,
     percentCurrent: number = 0,
     rockSupport: FanControl.Rock = { rockLeftRight: false, rockUpDown: false, rockRound: true },
     rockSetting: FanControl.Rock = { rockLeftRight: false, rockUpDown: false, rockRound: true },
@@ -898,6 +901,23 @@ export class MutableDevice {
         description: name,
         supportedModes: items.map((item, index) => ({ label: item, mode: index + 1, semanticTags: [] })),
         currentMode: 1,
+      }),
+    );
+    return this;
+  }
+
+  /**
+   * Adds an OnOff cluster server with the DeadFrontBehavior feature.
+   *
+   * @param {string} endpoint - Endpoint identifier ('' for main endpoint).
+   * @param {boolean} onOff - Initial On/Off state.
+   * @returns {this} The current instance for chaining.
+   */
+  addDeadFrontOnOff(endpoint: string, onOff: boolean): this {
+    const device = this.initializeEndpoint(endpoint);
+    device.clusterServersObjs.push(
+      getClusterServerObj(OnOff.id, MatterbridgeOnOffServer.with(OnOff.Feature.DeadFrontBehavior), {
+        onOff,
       }),
     );
     return this;
@@ -1026,6 +1046,11 @@ export class MutableDevice {
       for (const [endpoint, device] of Array.from(this.mutableDevices.entries()).filter(([endpoint]) => endpoint !== '')) {
         // this.log.debug(`Remapping endpoint ${endpoint}...`);
         let remapEndpoint = true;
+        // Do not remap fan onto thermostat (thermostat device type 0x0301 does not allow FanControl server)
+        const mainDeviceTypes = this.get('').deviceTypes;
+        if (mainDeviceTypes.some((d) => d.code === thermostat.code) && device.deviceTypes.some((d) => d.code === fan.code)) {
+          remapEndpoint = false;
+        }
         // Check duplicated device types
         for (const deviceType of device.deviceTypes) {
           const duplicatedDeviceTypes = Array.from(this.mutableDevices.entries())
@@ -1129,6 +1154,8 @@ export class MutableDevice {
       if (deviceTypesMap.has(dimmableLight.code) && deviceTypesMap.has(extendedColorLight.code)) deviceTypesMap.delete(dimmableLight.code);
 
       if (deviceTypesMap.has(colorTemperatureLight.code) && deviceTypesMap.has(extendedColorLight.code)) deviceTypesMap.delete(colorTemperatureLight.code);
+
+      if (deviceTypesMap.has(thermostat.code) && deviceTypesMap.has(roomAirConditioner.code)) deviceTypesMap.delete(thermostat.code);
       device.deviceTypes = Array.from(deviceTypesMap.values());
     }
     return this;

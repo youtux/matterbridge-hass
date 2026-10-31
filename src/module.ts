@@ -40,7 +40,7 @@ import {
 } from 'matterbridge';
 import { type AnsiLogger, CYAN, db, debugStringify, dn, er, hk, idn, ign, type LogLevel, nf, or, rs, wr, YELLOW } from 'matterbridge/logger';
 import type { ActionContext } from 'matterbridge/matter';
-import { BridgedDeviceBasicInformation, ColorControl, LevelControl, ModeSelect, OnOff, PowerSource } from 'matterbridge/matter/clusters';
+import { BridgedDeviceBasicInformation, ColorControl, FanControl, LevelControl, ModeSelect, OnOff, PowerSource } from 'matterbridge/matter/clusters';
 import { type ClusterId, getClusterNameById } from 'matterbridge/matter/types';
 import { deepEqual, fireAndForget, getErrorMessage, inspectError, isValidArray, isValidBoolean, isValidNumber, isValidObject, isValidString, waiter } from 'matterbridge/utils';
 
@@ -104,6 +104,7 @@ export interface HomeAssistantPlatformConfig extends PlatformConfig {
   postfix: string;
   airQualityRegex: string;
   enableServerRvc: boolean;
+  climateRoomAirConditioner: boolean;
   discardHiddenEntities: boolean;
   virtualControlLabel: string;
 }
@@ -240,6 +241,7 @@ export class HomeAssistantPlatform extends MatterbridgeDynamicPlatform {
       this.config.postfix = isValidString(this.config.postfix, 1, 3) ? this.config.postfix : '';
       this.config.airQualityRegex = isValidString(this.config.airQualityRegex, 1) ? this.config.airQualityRegex : '';
       this.config.enableServerRvc = isValidBoolean(this.config.enableServerRvc) ? this.config.enableServerRvc : true;
+      this.config.climateRoomAirConditioner = isValidBoolean(this.config.climateRoomAirConditioner) ? this.config.climateRoomAirConditioner : false;
       this.config.discardHiddenEntities = isValidBoolean(this.config.discardHiddenEntities) ? this.config.discardHiddenEntities : false;
       this.config.virtualControlLabel = isValidString(this.config.virtualControlLabel, 1) ? this.config.virtualControlLabel : '';
       this.config.debug ??= false;
@@ -1403,7 +1405,7 @@ export class HomeAssistantPlatform extends MatterbridgeDynamicPlatform {
       if (hassUpdateState.length > 0) {
         for (const update of hassUpdateState) {
           /* v8 ignore else */
-          if (update.clusterId !== undefined) {
+          if (update.clusterId !== undefined && endpoint.hasClusterServer(update.clusterId)) {
             endpoint.log.debug(`*Update state for cluster ${getClusterNameById(update.clusterId)} attribute ${update.attribute} value ${CYAN}${update.value}${db}`);
             await endpoint.setAttribute(update.clusterId, update.attribute, update.value, matterbridgeDevice.log);
           }
@@ -1433,11 +1435,12 @@ export class HomeAssistantPlatform extends MatterbridgeDynamicPlatform {
           }
           // @ts-expect-error: dynamic property access for Home Assistant state attribute
           const value = new_state.attributes[update.with];
-          if (value !== null) {
+          const targetEndpoint = endpoint.hasClusterServer(update.clusterId) ? endpoint : matterbridgeDevice.getChildEndpoints().find((e) => e.hasClusterServer(update.clusterId));
+          if (value !== null && targetEndpoint?.hasClusterServer(update.clusterId)) {
             const convertedValue = update.converter(value, new_state);
-            if (convertedValue !== null) {
-              endpoint.log.debug(`Converting id ${CYAN}${updateId}${db} attribute ${update.with} value ${value} to ${CYAN}${convertedValue}${db}`);
-              await endpoint.setAttribute(update.clusterId, update.attribute, convertedValue, endpoint.log);
+            if (convertedValue !== undefined && (convertedValue !== null || (update.clusterId === FanControl.id && update.attribute === 'percentSetting'))) {
+              targetEndpoint.log.debug(`Converting id ${CYAN}${updateId}${db} attribute ${update.with} value ${value} to ${CYAN}${convertedValue}${db}`);
+              await targetEndpoint.setAttribute(update.clusterId, update.attribute, convertedValue, targetEndpoint.log);
             }
           }
         }
